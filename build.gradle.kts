@@ -28,12 +28,12 @@ paperweight {
             patchesDir = file("aesirpaper-api/paper-patches")
             outputDir = file("paper-api")
         }
-        patchDir("purpurApi") {
+        /*patchDir("purpurApi") {
             upstreamPath = "purpur-api"
             excludes = listOf("build.gradle.kts", "build.gradle.kts.patch", "paper-patches")
             patchesDir = file("aesirpaper-api/purpur-patches")
             outputDir = file("purpur-api")
-        }
+        }*/
     }
 }
 
