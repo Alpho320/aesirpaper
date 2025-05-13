@@ -27,9 +27,9 @@ if (!file(".git").exists()) {
     error(errorText)
 }
 
-rootProject.name = "tentacles"
+rootProject.name = "aesirpaper"
 
-for (name in listOf("tentacles-api", "tentacles-server")) {
+for (name in listOf("aesirpaper-api", "aesirpaper-server")) {
     val projName = name.lowercase(Locale.ENGLISH)
     include(projName)
     findProject(":$projName")!!.projectDir = file(name)
