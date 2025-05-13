@@ -1,0 +1,1603 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alpho320 <cahitbaba00@gmail.com>
+Date: Tue, 13 May 2025 22:35:49 +0300
+Subject: [PATCH] add purpurapi things to purpur-server
+
+
+diff --git a/src/main/java/org/purpurmc/purpur/entity/StoredEntity.java b/src/main/java/org/purpurmc/purpur/entity/StoredEntity.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..32e3f8abd7979cc444ecca484e6723f2b2f86830
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/entity/StoredEntity.java
+@@ -0,0 +1,52 @@
++package org.purpurmc.purpur.entity;
++
++import org.bukkit.Nameable;
++import org.bukkit.block.EntityBlockStorage;
++import org.bukkit.entity.Entity;
++import org.bukkit.entity.EntityType;
++import org.bukkit.persistence.PersistentDataHolder;
++import org.jetbrains.annotations.NotNull;
++import org.jetbrains.annotations.Nullable;
++
++/**
++ * Represents an entity stored in a block
++ *
++ * @see EntityBlockStorage
++ */
++public interface StoredEntity<T extends Entity> extends PersistentDataHolder, Nameable {
++    /**
++     * Checks if this entity has been released yet
++     *
++     * @return if this entity has been released
++     */
++    boolean hasBeenReleased();
++
++    /**
++     * Releases the entity from its stored block
++     *
++     * @return the released entity, or null if unsuccessful (including if this entity has already been released)
++     */
++    @Nullable
++    T release();
++
++    /**
++     * Returns the block in which this entity is stored
++     *
++     * @return the EntityBlockStorage in which this entity is stored, or null if it has been released
++     */
++    @Nullable
++    EntityBlockStorage<T> getBlockStorage();
++
++    /**
++     * Gets the entity type of this stored entity
++     *
++     * @return the type of entity this stored entity represents
++     */
++    @NotNull
++    EntityType getType();
++
++    /**
++     * Writes data to the block entity snapshot. {@link EntityBlockStorage#update()} must be run in order to update the block in game.
++     */
++    void update();
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/ExecuteCommandEvent.java b/src/main/java/org/purpurmc/purpur/event/ExecuteCommandEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..55feef2321c7d966c72a33a58cf10136a9cacfa6
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/ExecuteCommandEvent.java
+@@ -0,0 +1,127 @@
++package org.purpurmc.purpur.event;
++
++import com.google.common.base.Preconditions;
++import org.bukkit.command.Command;
++import org.bukkit.command.CommandSender;
++import org.bukkit.event.Cancellable;
++import org.bukkit.event.Event;
++import org.bukkit.event.HandlerList;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++import org.jspecify.annotations.Nullable;
++
++/**
++ * This event is called whenever someone runs a command
++ */
++@NullMarked
++public class ExecuteCommandEvent extends Event implements Cancellable {
++    private static final HandlerList handlers = new HandlerList();
++    private boolean cancel = false;
++    private CommandSender sender;
++    private Command command;
++    private String label;
++    private @Nullable String[] args;
++
++    @ApiStatus.Internal
++    public ExecuteCommandEvent(CommandSender sender, Command command, String label, @Nullable String[] args) {
++        this.sender = sender;
++        this.command = command;
++        this.label = label;
++        this.args = args;
++    }
++
++    /**
++     * Gets the command that the player is attempting to execute.
++     *
++     * @return Command the player is attempting to execute
++     */
++    public Command getCommand() {
++        return command;
++    }
++
++    /**
++     * Sets the command that the player will execute.
++     *
++     * @param command New command that the player will execute
++     * @throws IllegalArgumentException if command is null or empty
++     */
++    public void setCommand(Command command) throws IllegalArgumentException {
++        Preconditions.checkArgument(command != null, "Command cannot be null");
++        this.command = command;
++    }
++
++    /**
++     * Gets the sender that this command will be executed as.
++     *
++     * @return Sender this command will be executed as
++     */
++    public CommandSender getSender() {
++        return sender;
++    }
++
++    /**
++     * Sets the sender that this command will be executed as.
++     *
++     * @param sender New sender which this event will execute as
++     * @throws IllegalArgumentException if the sender provided is null
++     */
++    public void setSender(final CommandSender sender) throws IllegalArgumentException {
++        Preconditions.checkArgument(sender != null, "Sender cannot be null");
++        this.sender = sender;
++    }
++
++    /**
++     * Get the label used to execute this command
++     *
++     * @return Label used to execute this command
++     */
++    public String getLabel() {
++        return label;
++    }
++
++    /**
++     * Set the label used to execute this command
++     *
++     * @param label Label used
++     */
++    public void setLabel(String label) {
++        this.label = label;
++    }
++
++    /**
++     * Get the args passed to the command
++     *
++     * @return Args passed to the command
++     */
++    public String[] getArgs() {
++        return args;
++    }
++
++    /**
++     * Set the args passed to the command
++     *
++     * @param args Args passed to the command
++     */
++    public void setArgs(String[] args) {
++        this.args = args;
++    }
++
++    @Override
++    public boolean isCancelled() {
++        return cancel;
++    }
++
++    @Override
++    public void setCancelled(boolean cancel) {
++        this.cancel = cancel;
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/PlayerAFKEvent.java b/src/main/java/org/purpurmc/purpur/event/PlayerAFKEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..e9637b82014fe3f4f4671b24d18f77f3d5e4b8ad
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/PlayerAFKEvent.java
+@@ -0,0 +1,71 @@
++package org.purpurmc.purpur.event;
++
++import org.bukkit.entity.Player;
++import org.bukkit.event.Cancellable;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.player.PlayerEvent;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++import org.jspecify.annotations.Nullable;
++
++@NullMarked
++public class PlayerAFKEvent extends PlayerEvent implements Cancellable {
++    private static final HandlerList handlers = new HandlerList();
++    private final boolean setAfk;
++    private boolean shouldKick;
++    private @Nullable String broadcast;
++    private boolean cancel;
++
++    @ApiStatus.Internal
++    public PlayerAFKEvent(Player player, boolean setAfk, boolean shouldKick, @Nullable String broadcast, boolean async) {
++        super(player, async);
++        this.setAfk = setAfk;
++        this.shouldKick = shouldKick;
++        this.broadcast = broadcast;
++    }
++
++    /**
++     * Whether player is going afk or coming back
++     *
++     * @return True if going afk. False is coming back
++     */
++    public boolean isGoingAfk() {
++        return setAfk;
++    }
++
++    public boolean shouldKick() {
++        return shouldKick;
++    }
++
++    public void setShouldKick(boolean shouldKick) {
++        this.shouldKick = shouldKick;
++    }
++
++    @Nullable
++    public String getBroadcastMsg() {
++        return broadcast;
++    }
++
++    public void setBroadcastMsg(@Nullable String broadcast) {
++        this.broadcast = broadcast;
++    }
++
++    @Override
++    public boolean isCancelled() {
++        return cancel;
++    }
++
++    @Override
++    public void setCancelled(boolean cancel) {
++        this.cancel = cancel;
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/PlayerSetSpawnerTypeWithEggEvent.java b/src/main/java/org/purpurmc/purpur/event/PlayerSetSpawnerTypeWithEggEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..795c558b481f4e2a550925bd88b8e7d41711456f
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/PlayerSetSpawnerTypeWithEggEvent.java
+@@ -0,0 +1,83 @@
++package org.purpurmc.purpur.event;
++
++import org.bukkit.block.Block;
++import org.bukkit.block.CreatureSpawner;
++import org.bukkit.entity.EntityType;
++import org.bukkit.entity.Player;
++import org.bukkit.event.Cancellable;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.player.PlayerEvent;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++
++@NullMarked
++public class PlayerSetSpawnerTypeWithEggEvent extends PlayerEvent implements Cancellable {
++    private static final HandlerList handlers = new HandlerList();
++    private final Block block;
++    private final CreatureSpawner spawner;
++    private EntityType type;
++    private boolean cancel;
++
++    @ApiStatus.Internal
++    public PlayerSetSpawnerTypeWithEggEvent(Player player, Block block, CreatureSpawner spawner, EntityType type) {
++        super(player);
++        this.block = block;
++        this.spawner = spawner;
++        this.type = type;
++    }
++
++    /**
++     * Get the spawner Block in the world
++     *
++     * @return Spawner Block
++     */
++    public Block getBlock() {
++        return block;
++    }
++
++    /**
++     * Get the spawner state
++     *
++     * @return Spawner state
++     */
++    public CreatureSpawner getSpawner() {
++        return spawner;
++    }
++
++    /**
++     * Gets the EntityType being set on the spawner
++     *
++     * @return EntityType being set
++     */
++    public EntityType getEntityType() {
++        return type;
++    }
++
++    /**
++     * Sets the EntityType being set on the spawner
++     *
++     * @param type EntityType to set
++     */
++    public void setEntityType(EntityType type) {
++        this.type = type;
++    }
++
++    @Override
++    public boolean isCancelled() {
++        return cancel;
++    }
++
++    @Override
++    public void setCancelled(boolean cancel) {
++        this.cancel = cancel;
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/PlayerSetTrialSpawnerTypeWithEggEvent.java b/src/main/java/org/purpurmc/purpur/event/PlayerSetTrialSpawnerTypeWithEggEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..1d4dbf60a182a2a5f93c449e387b82743d20616c
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/PlayerSetTrialSpawnerTypeWithEggEvent.java
+@@ -0,0 +1,83 @@
++package org.purpurmc.purpur.event;
++
++import org.bukkit.block.Block;
++import org.bukkit.block.TrialSpawner;
++import org.bukkit.entity.EntityType;
++import org.bukkit.entity.Player;
++import org.bukkit.event.Cancellable;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.player.PlayerEvent;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++
++@NullMarked
++public class PlayerSetTrialSpawnerTypeWithEggEvent extends PlayerEvent implements Cancellable {
++    private static final HandlerList handlers = new HandlerList();
++    private final Block block;
++    private final TrialSpawner spawner;
++    private EntityType type;
++    private boolean cancel;
++
++    @ApiStatus.Internal
++    public PlayerSetTrialSpawnerTypeWithEggEvent(Player player, Block block, TrialSpawner spawner, EntityType type) {
++        super(player);
++        this.block = block;
++        this.spawner = spawner;
++        this.type = type;
++    }
++
++    /**
++     * Get the spawner Block in the world
++     *
++     * @return Spawner Block
++     */
++    public Block getBlock() {
++        return block;
++    }
++
++    /**
++     * Get the spawner state
++     *
++     * @return Spawner state
++     */
++    public TrialSpawner getSpawner() {
++        return spawner;
++    }
++
++    /**
++     * Gets the EntityType being set on the spawner
++     *
++     * @return EntityType being set
++     */
++    public EntityType getEntityType() {
++        return type;
++    }
++
++    /**
++     * Sets the EntityType being set on the spawner
++     *
++     * @param type EntityType to set
++     */
++    public void setEntityType(EntityType type) {
++        this.type = type;
++    }
++
++    @Override
++    public boolean isCancelled() {
++        return cancel;
++    }
++
++    @Override
++    public void setCancelled(boolean cancel) {
++        this.cancel = cancel;
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/PreBlockExplodeEvent.java b/src/main/java/org/purpurmc/purpur/event/PreBlockExplodeEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..4b4d32c58224e1208f14024ca214078a37550bb5
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/PreBlockExplodeEvent.java
+@@ -0,0 +1,56 @@
++package org.purpurmc.purpur.event;
++
++import org.bukkit.ExplosionResult;
++import org.bukkit.block.Block;
++import org.bukkit.block.BlockState;
++import org.bukkit.event.Cancellable;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.block.BlockExplodeEvent;
++import org.jetbrains.annotations.ApiStatus;
++import java.util.Collections;
++import org.jspecify.annotations.NullMarked;
++
++/**
++ * Called before a block's explosion is processed
++ */
++@NullMarked
++public class PreBlockExplodeEvent extends BlockExplodeEvent implements Cancellable {
++    private static final HandlerList handlers = new HandlerList();
++    private boolean cancelled;
++    private final float yield;
++
++    @ApiStatus.Internal
++    public PreBlockExplodeEvent(final Block what, final float yield, BlockState explodedBlockState, ExplosionResult result) {
++        super(what, explodedBlockState, Collections.emptyList(), yield, result);
++        this.yield = yield;
++        this.cancelled = false;
++    }
++
++    /**
++     * Returns the percentage of blocks to drop from this explosion
++     *
++     * @return The yield.
++     */
++    public float getYield() {
++        return yield;
++    }
++
++    @Override
++    public boolean isCancelled() {
++        return this.cancelled;
++    }
++
++    @Override
++    public void setCancelled(boolean cancel) {
++        this.cancelled = cancel;
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/entity/BeeFoundFlowerEvent.java b/src/main/java/org/purpurmc/purpur/event/entity/BeeFoundFlowerEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..7f631a41abee4640a37339a7896ce96e61747735
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/entity/BeeFoundFlowerEvent.java
+@@ -0,0 +1,48 @@
++package org.purpurmc.purpur.event.entity;
++
++import org.bukkit.Location;
++import org.bukkit.entity.Bee;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.entity.EntityEvent;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++import org.jspecify.annotations.Nullable;
++
++/**
++ * Called when a bee targets a flower
++ */
++@NullMarked
++public class BeeFoundFlowerEvent extends EntityEvent {
++    private static final HandlerList handlers = new HandlerList();
++    private final Location location;
++
++    @ApiStatus.Internal
++    public BeeFoundFlowerEvent(Bee bee, @Nullable Location location) {
++        super(bee);
++        this.location = location;
++    }
++
++    @Override
++    public Bee getEntity() {
++        return (Bee) super.getEntity();
++    }
++
++    /**
++     * Returns the location of the flower that the bee targets
++     *
++     * @return The location of the flower
++     */
++    @Nullable
++    public Location getLocation() {
++        return location;
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/entity/BeeStartedPollinatingEvent.java b/src/main/java/org/purpurmc/purpur/event/entity/BeeStartedPollinatingEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..e260145d6dc556bbe9e3654296b965c4e393084d
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/entity/BeeStartedPollinatingEvent.java
+@@ -0,0 +1,46 @@
++package org.purpurmc.purpur.event.entity;
++
++import org.bukkit.Location;
++import org.bukkit.entity.Bee;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.entity.EntityEvent;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++
++/**
++ * Called when a bee starts pollinating
++ */
++@NullMarked
++public class BeeStartedPollinatingEvent extends EntityEvent {
++    private static final HandlerList handlers = new HandlerList();
++    private final Location location;
++
++    @ApiStatus.Internal
++    public BeeStartedPollinatingEvent(Bee bee, Location location) {
++        super(bee);
++        this.location = location;
++    }
++
++    @Override
++    public Bee getEntity() {
++        return (Bee) super.getEntity();
++    }
++
++    /**
++     * Returns the location of the flower that the bee pollinates
++     *
++     * @return The location of the flower
++     */
++    public Location getLocation() {
++        return this.location;
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/entity/BeeStopPollinatingEvent.java b/src/main/java/org/purpurmc/purpur/event/entity/BeeStopPollinatingEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..8b2b351d620c749cdf58d7e824b55cf55578fde6
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/entity/BeeStopPollinatingEvent.java
+@@ -0,0 +1,60 @@
++package org.purpurmc.purpur.event.entity;
++
++import org.bukkit.Location;
++import org.bukkit.entity.Bee;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.entity.EntityEvent;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++import org.jspecify.annotations.Nullable;
++
++/**
++ * Called when a bee stops pollinating
++ */
++@NullMarked
++public class BeeStopPollinatingEvent extends EntityEvent {
++    private static final HandlerList handlers = new HandlerList();
++    private final Location location;
++    private final boolean success;
++
++    @ApiStatus.Internal
++    public BeeStopPollinatingEvent(Bee bee, @Nullable Location location, boolean success) {
++        super(bee);
++        this.location = location;
++        this.success = success;
++    }
++
++    @Override
++    public Bee getEntity() {
++        return (Bee) super.getEntity();
++    }
++
++    /**
++     * Returns the location of the flower that the bee stopped pollinating
++     *
++     * @return The location of the flower
++     */
++    @Nullable
++    public Location getLocation() {
++        return location;
++    }
++
++    /**
++     * Returns whether the bee successfully pollinated the flower
++     *
++     * @return True if the pollination was successful
++     */
++    public boolean wasSuccessful() {
++        return success;
++    }
++
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/entity/EntityTeleportHinderedEvent.java b/src/main/java/org/purpurmc/purpur/event/entity/EntityTeleportHinderedEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..daf3bbf83ee76322828a38814b483fa2b337bd60
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/entity/EntityTeleportHinderedEvent.java
+@@ -0,0 +1,114 @@
++package org.purpurmc.purpur.event.entity;
++
++import org.bukkit.entity.Entity;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.entity.EntityEvent;
++import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++import org.jspecify.annotations.Nullable;
++
++/**
++ * Fired when an entity is hindered from teleporting.
++ */
++@NullMarked
++public class EntityTeleportHinderedEvent extends EntityEvent {
++  private static final HandlerList handlers = new HandlerList();
++
++  private final Reason reason;
++
++  private final @Nullable TeleportCause teleportCause;
++
++  private boolean retry = false;
++
++    @ApiStatus.Internal
++  public EntityTeleportHinderedEvent(Entity what, Reason reason, @Nullable TeleportCause teleportCause) {
++    super(what);
++    this.reason = reason;
++    this.teleportCause = teleportCause;
++  }
++
++  /**
++   * @return why the teleport was hindered.
++   */
++  public Reason getReason() {
++    return reason;
++  }
++
++  /**
++   * @return why the teleport occurred if cause was given, otherwise {@code null}.
++   */
++  @Nullable
++  public TeleportCause getTeleportCause() {
++    return teleportCause;
++  }
++
++  /**
++   * Whether the teleport should be retried.
++   * <p>
++   * Note that this can put the server in a never-ending loop of trying to teleport someone resulting in a stack
++   * overflow. Do not retry more than necessary.
++   * </p>
++   *
++   * @return whether the teleport should be retried.
++   */
++  public boolean shouldRetry() {
++    return retry;
++  }
++
++  /**
++   * Sets whether the teleport should be retried.
++   * <p>
++   * Note that this can put the server in a never-ending loop of trying to teleport someone resulting in a stack
++   * overflow. Do not retry more than necessary.
++   * </p>
++   *
++   * @param retry whether the teleport should be retried.
++   */
++  public void setShouldRetry(boolean retry) {
++    this.retry = retry;
++  }
++
++  /**
++   * Calls the event and tests if should retry.
++   *
++   * @return whether the teleport should be retried.
++   */
++  @Override
++  public boolean callEvent() {
++    super.callEvent();
++    return shouldRetry();
++  }
++
++  @Override
++  public HandlerList getHandlers() {
++    return handlers;
++  }
++
++  public static HandlerList getHandlerList() {
++    return handlers;
++  }
++
++  /**
++   * Reason for hindrance in teleports.
++   */
++  public enum Reason {
++    /**
++     * The teleported entity is a passenger of another entity.
++     */
++    IS_PASSENGER,
++
++    /**
++     * The teleported entity has passengers.
++     */
++    IS_VEHICLE,
++
++    /**
++     * The teleport event was cancelled.
++     * <p>
++     * This is only caused by players teleporting.
++     * </p>
++     */
++    EVENT_CANCELLED,
++  }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/entity/GoatRamEntityEvent.java b/src/main/java/org/purpurmc/purpur/event/entity/GoatRamEntityEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..f0a7fe694db145294ff93d320382d1baecc68702
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/entity/GoatRamEntityEvent.java
+@@ -0,0 +1,58 @@
++package org.purpurmc.purpur.event.entity;
++
++import org.bukkit.entity.Goat;
++import org.bukkit.entity.LivingEntity;
++import org.bukkit.event.Cancellable;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.entity.EntityEvent;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++
++/**
++ * Called when a goat rams an entity
++ */
++@NullMarked
++public class GoatRamEntityEvent extends EntityEvent implements Cancellable {
++    private static final HandlerList handlers = new HandlerList();
++    private final LivingEntity rammedEntity;
++    private boolean cancelled;
++
++    @ApiStatus.Internal
++    public GoatRamEntityEvent(Goat goat, LivingEntity rammedEntity) {
++        super(goat);
++        this.rammedEntity = rammedEntity;
++    }
++
++    /**
++     * Returns the entity that was rammed by the goat
++     *
++     * @return The rammed entity
++     */
++    public LivingEntity getRammedEntity() {
++        return this.rammedEntity;
++    }
++
++    @Override
++    public Goat getEntity() {
++        return (Goat) super.getEntity();
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++
++    @Override
++    public boolean isCancelled() {
++        return this.cancelled;
++    }
++
++    @Override
++    public void setCancelled(boolean cancel) {
++        this.cancelled = cancel;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/entity/LlamaJoinCaravanEvent.java b/src/main/java/org/purpurmc/purpur/event/entity/LlamaJoinCaravanEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..e34c37579dc8a5a108c03b9eff6bb916a910d867
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/entity/LlamaJoinCaravanEvent.java
+@@ -0,0 +1,60 @@
++package org.purpurmc.purpur.event.entity;
++
++import org.bukkit.entity.Llama;
++import org.bukkit.event.Cancellable;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.entity.EntityEvent;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++
++/**
++ * Called when a Llama tries to join a caravan.
++ * <p>
++ * Cancelling the event will not let the Llama join. To prevent future attempts
++ * at joining a caravan use {@link Llama#setShouldJoinCaravan(boolean)}.
++ */
++@NullMarked
++public class LlamaJoinCaravanEvent extends EntityEvent implements Cancellable {
++    private static final HandlerList handlers = new HandlerList();
++    private boolean canceled;
++    private final Llama head;
++
++    @ApiStatus.Internal
++    public LlamaJoinCaravanEvent(Llama llama, Llama head) {
++        super(llama);
++        this.head = head;
++    }
++
++    @Override
++    public Llama getEntity() {
++        return (Llama) entity;
++    }
++
++    /**
++     * Get the Llama that this Llama is about to follow
++     *
++     * @return Llama about to be followed
++     */
++    public Llama getHead() {
++        return head;
++    }
++
++    @Override
++    public boolean isCancelled() {
++        return canceled;
++    }
++
++    @Override
++    public void setCancelled(boolean cancel) {
++        canceled = cancel;
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/entity/LlamaLeaveCaravanEvent.java b/src/main/java/org/purpurmc/purpur/event/entity/LlamaLeaveCaravanEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..23ea41ff5dc43a915a263aeb1a246705de8bf9e1
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/entity/LlamaLeaveCaravanEvent.java
+@@ -0,0 +1,34 @@
++package org.purpurmc.purpur.event.entity;
++
++import org.bukkit.entity.Llama;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.entity.EntityEvent;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++
++/**
++ * Called when a Llama leaves a caravan
++ */
++@NullMarked
++public class LlamaLeaveCaravanEvent extends EntityEvent {
++    private static final HandlerList handlers = new HandlerList();
++
++    @ApiStatus.Internal
++    public LlamaLeaveCaravanEvent(Llama llama) {
++        super(llama);
++    }
++
++    @Override
++    public Llama getEntity() {
++        return (Llama) entity;
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/entity/PreEntityExplodeEvent.java b/src/main/java/org/purpurmc/purpur/event/entity/PreEntityExplodeEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..d56fb066455007cc710f7ba34ba722af6e89bc1d
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/entity/PreEntityExplodeEvent.java
+@@ -0,0 +1,66 @@
++package org.purpurmc.purpur.event.entity;
++
++import org.bukkit.ExplosionResult;
++import org.bukkit.Location;
++import org.bukkit.event.Cancellable;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.entity.EntityExplodeEvent;
++import org.jetbrains.annotations.ApiStatus;
++import java.util.Collections;
++import org.jspecify.annotations.NullMarked;
++
++/**
++ * Called before an entity's explosion is processed
++ */
++@NullMarked
++public class PreEntityExplodeEvent extends EntityExplodeEvent implements Cancellable {
++    private static final HandlerList handlers = new HandlerList();
++    private boolean cancelled;
++    private final float yield;
++    private final Location location;
++
++    @ApiStatus.Internal
++    public PreEntityExplodeEvent(org.bukkit.entity.Entity what, final Location location, final float yield, ExplosionResult result) {
++        super(what, location, Collections.emptyList(), yield, result);
++        this.cancelled = false;
++        this.yield = yield;
++        this.location = location;
++    }
++
++    /**
++     * Returns the percentage of blocks to drop from this explosion
++     *
++     * @return The yield.
++     */
++    public float getYield() {
++        return yield;
++    }
++
++    /**
++     * Returns the location where the explosion happened.
++     *
++     * @return The location of the explosion
++     */
++    public Location getLocation() {
++        return location;
++    }
++
++    @Override
++    public boolean isCancelled() {
++        return this.cancelled;
++    }
++
++    @Override
++    public void setCancelled(boolean cancel) {
++        this.cancelled = cancel;
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/entity/RidableMoveEvent.java b/src/main/java/org/purpurmc/purpur/event/entity/RidableMoveEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..c31a656daa3df1ab87302d8f14110a828c920102
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/entity/RidableMoveEvent.java
+@@ -0,0 +1,100 @@
++package org.purpurmc.purpur.event.entity;
++
++import com.google.common.base.Preconditions;
++import org.bukkit.Location;
++import org.bukkit.entity.Mob;
++import org.bukkit.entity.Player;
++import org.bukkit.event.Cancellable;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.entity.EntityEvent;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++
++/**
++ * Triggered when a ridable mob moves with a rider
++ */
++@NullMarked
++public class RidableMoveEvent extends EntityEvent implements Cancellable {
++    private static final HandlerList handlers = new HandlerList();
++    private boolean canceled;
++    private final Player rider;
++    private Location from;
++    private Location to;
++
++    @ApiStatus.Internal
++    public RidableMoveEvent(Mob entity, Player rider, Location from, Location to) {
++        super(entity);
++        this.rider = rider;
++        this.from = from;
++        this.to = to;
++    }
++
++    @Override
++    public Mob getEntity() {
++        return (Mob) entity;
++    }
++
++    public Player getRider() {
++        return rider;
++    }
++
++    public boolean isCancelled() {
++        return canceled;
++    }
++
++    public void setCancelled(boolean cancel) {
++        canceled = cancel;
++    }
++
++    /**
++     * Gets the location this entity moved from
++     *
++     * @return Location the entity moved from
++     */
++    public Location getFrom() {
++        return from;
++    }
++
++    /**
++     * Sets the location to mark as where the entity moved from
++     *
++     * @param from New location to mark as the entity's previous location
++     */
++    public void setFrom(Location from) {
++        validateLocation(from);
++        this.from = from;
++    }
++
++    /**
++     * Gets the location this entity moved to
++     *
++     * @return Location the entity moved to
++     */
++    public Location getTo() {
++        return to;
++    }
++
++    /**
++     * Sets the location that this entity will move to
++     *
++     * @param to New Location this entity will move to
++     */
++    public void setTo(Location to) {
++        validateLocation(to);
++        this.to = to;
++    }
++
++    private void validateLocation(Location loc) {
++        Preconditions.checkArgument(loc != null, "Cannot use null location!");
++        Preconditions.checkArgument(loc.getWorld() != null, "Cannot use null location with null world!");
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/entity/RidableSpacebarEvent.java b/src/main/java/org/purpurmc/purpur/event/entity/RidableSpacebarEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..02de629f066ef7d4898b3053efa957edeea16a3f
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/entity/RidableSpacebarEvent.java
+@@ -0,0 +1,38 @@
++package org.purpurmc.purpur.event.entity;
++
++import org.bukkit.entity.Entity;
++import org.bukkit.event.Cancellable;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.entity.EntityEvent;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++
++@NullMarked
++public class RidableSpacebarEvent extends EntityEvent implements Cancellable {
++    private static final HandlerList handlers = new HandlerList();
++    private boolean cancelled;
++
++    @ApiStatus.Internal
++    public RidableSpacebarEvent(Entity entity) {
++        super(entity);
++    }
++
++    @Override
++    public boolean isCancelled() {
++        return cancelled;
++    }
++
++    @Override
++    public void setCancelled(boolean cancel) {
++        cancelled = cancel;
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/inventory/AnvilTakeResultEvent.java b/src/main/java/org/purpurmc/purpur/event/inventory/AnvilTakeResultEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..b2199854b5c7e74a673cbadbe584e5aaebbe3883
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/inventory/AnvilTakeResultEvent.java
+@@ -0,0 +1,50 @@
++package org.purpurmc.purpur.event.inventory;
++
++import org.bukkit.entity.HumanEntity;
++import org.bukkit.entity.Player;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.inventory.InventoryEvent;
++import org.bukkit.inventory.AnvilInventory;
++import org.bukkit.inventory.InventoryView;
++import org.bukkit.inventory.ItemStack;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++
++/**
++ * Called when a player takes the result item out of an anvil
++ */
++@NullMarked
++public class AnvilTakeResultEvent extends InventoryEvent {
++    private static final HandlerList handlers = new HandlerList();
++    private final Player player;
++    private final ItemStack result;
++
++    @ApiStatus.Internal
++    public AnvilTakeResultEvent(HumanEntity player, InventoryView view, ItemStack result) {
++        super(view);
++        this.player = (Player) player;
++        this.result = result;
++    }
++
++    public Player getPlayer() {
++        return player;
++    }
++
++    public ItemStack getResult() {
++        return result;
++    }
++
++    @Override
++    public AnvilInventory getInventory() {
++        return (AnvilInventory) super.getInventory();
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/inventory/AnvilUpdateResultEvent.java b/src/main/java/org/purpurmc/purpur/event/inventory/AnvilUpdateResultEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..4293c4a57c1c054e8248b7712e8664bd4cb1a972
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/inventory/AnvilUpdateResultEvent.java
+@@ -0,0 +1,35 @@
++package org.purpurmc.purpur.event.inventory;
++
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.inventory.InventoryEvent;
++import org.bukkit.inventory.AnvilInventory;
++import org.bukkit.inventory.InventoryView;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++
++/**
++ * Called when anvil slots change, triggering the result slot to be updated
++ */
++@NullMarked
++public class AnvilUpdateResultEvent extends InventoryEvent {
++    private static final HandlerList handlers = new HandlerList();
++
++    @ApiStatus.Internal
++    public AnvilUpdateResultEvent(InventoryView view) {
++        super(view);
++    }
++
++    @Override
++    public AnvilInventory getInventory() {
++        return (AnvilInventory) super.getInventory();
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/inventory/GrindstoneTakeResultEvent.java b/src/main/java/org/purpurmc/purpur/event/inventory/GrindstoneTakeResultEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..d6db2d355553c9c54b83328d237b9c75e7a8e375
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/inventory/GrindstoneTakeResultEvent.java
+@@ -0,0 +1,72 @@
++package org.purpurmc.purpur.event.inventory;
++
++import org.bukkit.entity.HumanEntity;
++import org.bukkit.entity.Player;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.inventory.InventoryEvent;
++import org.bukkit.inventory.GrindstoneInventory;
++import org.bukkit.inventory.InventoryView;
++import org.bukkit.inventory.ItemStack;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++
++/**
++ * Called when a player takes the result item out of a Grindstone
++ */
++@NullMarked
++public class GrindstoneTakeResultEvent extends InventoryEvent {
++    private static final HandlerList handlers = new HandlerList();
++    private final Player player;
++    private final ItemStack result;
++    private int experienceAmount;
++
++    @ApiStatus.Internal
++    public GrindstoneTakeResultEvent(HumanEntity player, InventoryView view, ItemStack result, int experienceAmount) {
++        super(view);
++        this.player = (Player) player;
++        this.result = result;
++        this.experienceAmount = experienceAmount;
++    }
++
++    public Player getPlayer() {
++        return player;
++    }
++
++    public ItemStack getResult() {
++        return result;
++    }
++
++    @Override
++    public GrindstoneInventory getInventory() {
++        return (GrindstoneInventory) super.getInventory();
++    }
++
++    /**
++     * Get the amount of experience this transaction will give
++     * (takes priority over and uses result from {@link org.bukkit.event.block.BlockExpEvent})
++     *
++     * @return Amount of experience to give
++     */
++    public int getExperienceAmount() {
++        return this.experienceAmount;
++    }
++
++    /**
++     * Set the amount of experience this transaction will give
++     * (takes priority over {@link org.bukkit.event.block.BlockExpEvent})
++     *
++     * @param experienceAmount Amount of experience to give
++     */
++    public void setExperienceAmount(int experienceAmount) {
++        this.experienceAmount = experienceAmount;
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/event/player/PlayerBookTooLargeEvent.java b/src/main/java/org/purpurmc/purpur/event/player/PlayerBookTooLargeEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..31cce9f4e398135016114b96254376325a22ba7c
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/event/player/PlayerBookTooLargeEvent.java
+@@ -0,0 +1,65 @@
++package org.purpurmc.purpur.event.player;
++
++import org.bukkit.Bukkit;
++import org.bukkit.entity.Player;
++import org.bukkit.event.HandlerList;
++import org.bukkit.event.player.PlayerEvent;
++import org.bukkit.inventory.ItemStack;
++import org.jetbrains.annotations.ApiStatus;
++import org.jspecify.annotations.NullMarked;
++
++/**
++ * Called when a player tries to bypass book limitations
++ */
++@NullMarked
++public class PlayerBookTooLargeEvent extends PlayerEvent {
++    private static final HandlerList handlers = new HandlerList();
++    private final ItemStack book;
++    private boolean kickPlayer = true;
++
++    /**
++     * @param player The player
++     * @param book The book
++     */
++    @ApiStatus.Internal
++    public PlayerBookTooLargeEvent(Player player, ItemStack book) {
++        super(player, !Bukkit.isPrimaryThread());
++        this.book = book;
++    }
++
++    /**
++     * Get the book containing the wanted edits
++     *
++     * @return The book
++     */
++    public ItemStack getBook() {
++        return book;
++    }
++
++    /**
++     * Whether server should kick the player or not
++     *
++     * @return True to kick player
++     */
++    public boolean shouldKickPlayer() {
++        return kickPlayer;
++    }
++
++    /**
++     * Whether server should kick the player or not
++     *
++     * @param kickPlayer True to kick player
++     */
++    public void setShouldKickPlayer(boolean kickPlayer) {
++        this.kickPlayer = kickPlayer;
++    }
++
++    @Override
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/language/Language.java b/src/main/java/org/purpurmc/purpur/language/Language.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..cbdad4cf09c170064a45644efdf7aa0b28608301
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/language/Language.java
+@@ -0,0 +1,60 @@
++package org.purpurmc.purpur.language;
++
++import net.kyori.adventure.translation.Translatable;
++import org.jspecify.annotations.NullMarked;
++import org.jspecify.annotations.Nullable;
++
++/**
++ * Represents a language that can translate translation keys
++ */
++@NullMarked
++public abstract class Language {
++    private static @Nullable Language language;
++
++    /**
++     * Returns the default language of the server
++     */
++    @Nullable
++    public static Language getLanguage() {
++        return language;
++    }
++
++    public static void setLanguage(Language language) {
++        if (Language.language != null) {
++            throw new UnsupportedOperationException("Cannot redefine singleton Language");
++        }
++        Language.language = language;
++    }
++
++    /**
++     * Checks if a certain translation key is translatable with this language
++     * @param key The translation key
++     * @return Whether this language can translate the key
++     */
++    abstract public boolean has(String key);
++
++    /**
++     * Checks if a certain translation key is translatable with this language
++     * @param key The translation key
++     * @return Whether this language can translate the key
++     */
++    public boolean has(Translatable key) {
++        return has(key.translationKey());
++    }
++
++    /**
++     * Translates a translation key to this language
++     * @param key The translation key
++     * @return The translated key, or the translation key if it couldn't be translated
++     */
++    abstract public String getOrDefault(String key);
++
++    /**
++     * Translates a translation key to this language
++     * @param key The translation key
++     * @return The translated key, or the translation key if it couldn't be translated
++     */
++    public String getOrDefault(Translatable key) {
++        return getOrDefault(key.translationKey());
++    }
++}
+diff --git a/src/main/java/org/purpurmc/purpur/util/permissions/PurpurPermissions.java b/src/main/java/org/purpurmc/purpur/util/permissions/PurpurPermissions.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..50647252ed654fbcf71db72a283fb8080ecee6d3
+--- /dev/null
++++ b/src/main/java/org/purpurmc/purpur/util/permissions/PurpurPermissions.java
+@@ -0,0 +1,87 @@
++package org.purpurmc.purpur.util.permissions;
++
++import org.bukkit.entity.Entity;
++import org.bukkit.entity.EntityType;
++import org.bukkit.entity.Mob;
++import org.bukkit.permissions.Permission;
++import org.bukkit.permissions.PermissionDefault;
++import org.bukkit.util.permissions.DefaultPermissions;
++import org.jetbrains.annotations.NotNull;
++
++import java.util.HashSet;
++import java.util.Set;
++
++public final class PurpurPermissions {
++    private static final String ROOT = "purpur";
++    private static final String PREFIX = ROOT + ".";
++    private static final Set<String> mobs = new HashSet<>();
++
++    static {
++        for (EntityType mob : EntityType.values()) {
++            Class<? extends Entity> clazz = mob.getEntityClass();
++            if (clazz != null && Mob.class.isAssignableFrom(clazz)) {
++                mobs.add(mob.getName());
++            }
++        }
++    }
++
++    @NotNull
++    public static Permission registerPermissions() {
++        Permission purpur = DefaultPermissions.registerPermission(ROOT, "Gives the user the ability to use all Purpur utilities and commands", PermissionDefault.FALSE);
++
++        DefaultPermissions.registerPermission(PREFIX + "enderchest.rows.six", "Gives the user six rows of enderchest space", PermissionDefault.FALSE, purpur);
++        DefaultPermissions.registerPermission(PREFIX + "enderchest.rows.five", "Gives the user five rows of enderchest space", PermissionDefault.FALSE, purpur);
++        DefaultPermissions.registerPermission(PREFIX + "enderchest.rows.four", "Gives the user four rows of enderchest space", PermissionDefault.FALSE, purpur);
++        DefaultPermissions.registerPermission(PREFIX + "enderchest.rows.three", "Gives the user three rows of enderchest space", PermissionDefault.FALSE, purpur);
++        DefaultPermissions.registerPermission(PREFIX + "enderchest.rows.two", "Gives the user two rows of enderchest space", PermissionDefault.FALSE, purpur);
++        DefaultPermissions.registerPermission(PREFIX + "enderchest.rows.one", "Gives the user one row of enderchest space", PermissionDefault.FALSE, purpur);
++
++        DefaultPermissions.registerPermission(PREFIX + "debug.f3n", "Allows the user to use F3+N keybind to swap gamemodes", PermissionDefault.FALSE, purpur);
++
++        DefaultPermissions.registerPermission(PREFIX + "joinfullserver", "Allows the user to join a full server", PermissionDefault.OP, purpur);
++
++        DefaultPermissions.registerPermission(PREFIX + "bypassIdleKick", "Allows the user to bypass being kicked while idle", PermissionDefault.FALSE, purpur);
++
++        DefaultPermissions.registerPermission(PREFIX + "inventory_totem", "Allows the user to use totem of undying anywhere in their inventory", PermissionDefault.FALSE, purpur);
++
++        Permission anvil = DefaultPermissions.registerPermission(PREFIX + "anvil", "Allows the user to use all anvil color and format abilities", PermissionDefault.FALSE, purpur);
++        DefaultPermissions.registerPermission(PREFIX + "anvil.color", "Allows the user to use color codes in an anvil", PermissionDefault.FALSE, anvil);
++        DefaultPermissions.registerPermission(PREFIX + "anvil.minimessage", "Allows the user to use minimessage tags in an anvil", PermissionDefault.FALSE, anvil);
++        DefaultPermissions.registerPermission(PREFIX + "anvil.remove_italics", "Allows the user to remove italics in an anvil", PermissionDefault.FALSE, anvil);
++        DefaultPermissions.registerPermission(PREFIX + "anvil.format", "Allows the user to use format codes in an anvil", PermissionDefault.FALSE, anvil);
++        anvil.recalculatePermissibles();
++
++        Permission book = DefaultPermissions.registerPermission(PREFIX + "book", "Allows the user to use color codes on books", PermissionDefault.FALSE, purpur);
++        DefaultPermissions.registerPermission(PREFIX + "book.color.edit", "Allows the user to use color codes on books when editing", PermissionDefault.FALSE, book);
++        DefaultPermissions.registerPermission(PREFIX + "book.color.sign", "Allows the user to use color codes on books when signing", PermissionDefault.FALSE, book);
++        book.recalculatePermissibles();
++
++        Permission sign = DefaultPermissions.registerPermission(PREFIX + "sign", "Allows the user to use all sign abilities", PermissionDefault.FALSE, purpur);
++        DefaultPermissions.registerPermission(PREFIX + "sign.edit", "Allows the user to click signs to open sign editor", PermissionDefault.TRUE, sign);
++        DefaultPermissions.registerPermission(PREFIX + "sign.color", "Allows the user to use color codes on signs", PermissionDefault.FALSE, sign);
++        DefaultPermissions.registerPermission(PREFIX + "sign.style", "Allows the user to use style codes on signs", PermissionDefault.FALSE, sign);
++        DefaultPermissions.registerPermission(PREFIX + "sign.magic", "Allows the user to use magic/obfuscate code on signs", PermissionDefault.FALSE, sign);
++        sign.recalculatePermissibles();
++
++        Permission ride = DefaultPermissions.registerPermission("allow.ride", "Allows the user to ride all mobs", PermissionDefault.FALSE, purpur);
++        for (String mob : mobs) {
++            DefaultPermissions.registerPermission("allow.ride." + mob, "Allows the user to ride " + mob, PermissionDefault.FALSE, ride);
++        }
++        ride.recalculatePermissibles();
++
++        Permission special = DefaultPermissions.registerPermission("allow.special", "Allows the user to use all mobs special abilities", PermissionDefault.FALSE, purpur);
++        for (String mob : mobs) {
++            DefaultPermissions.registerPermission("allow.special." + mob, "Allows the user to use " + mob + " special ability", PermissionDefault.FALSE, special);
++        }
++        special.recalculatePermissibles();
++
++        Permission powered = DefaultPermissions.registerPermission("allow.powered", "Allows the user to toggle all mobs powered state", PermissionDefault.FALSE, purpur);
++        DefaultPermissions.registerPermission("allow.powered.creeper", "Allows the user to toggle creeper powered state", PermissionDefault.FALSE, powered);
++        powered.recalculatePermissibles();
++
++        DefaultPermissions.registerPermission(PREFIX + "portal.instant", "Allows the user to bypass portal wait time", PermissionDefault.FALSE, purpur);
++
++        purpur.recalculatePermissibles();
++        return purpur;
++    }
++}
